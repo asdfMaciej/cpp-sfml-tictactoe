@@ -7,21 +7,30 @@
 enum class Figura {
     kolko, krzyzyk, brak
 };
+enum class Pokoj {
+    pMenu, pGra, pAbout
+};
 
 class Gra {
     public:
         void petla();
-        void init_okno();
+        void init_gra();
         void init_pozycje();
         void init_plansza();
         void init_tekstury();
         void draw_plansza();
+        void draw_about();
+        void draw_menu();
         void handle_clock();
         void process_keyboard(sf::Event ev);
         void process_leftclick(sf::Event ev);
+        void process_menu(sf::Event ev);
+        void process_plansza(sf::Event ev);
+        void process_about(sf::Event ev);
         bool kratka_click_detect(sf::Event ev, int n);
         void tura_next();
         void sprawdz_wygrana();
+        sf::Text gen_tekst(std::string txt, int px, sf::Color kolor);
     protected:
         sf::RenderWindow okno;
         sf::IntRect pozycje[9];
@@ -30,13 +39,22 @@ class Gra {
         sf::Texture bok;
         sf::Texture remis;
         sf::Texture wygrana;
+        sf::Texture papier1;
+        sf::Texture papier2;
+        sf::Font czcionka;
+        sf::Text graj;
+        sf::Text o_grze;
+        sf::Text t_about;
+        sf::Text wroc;
         sf::Clock clock;
+        Pokoj pokoj;
         std::vector<Figura> plansza;
         Figura tura;
         int win_a;
         int win_b;
         bool koniec;
         Figura zwyciezca;
+        static const int FPS = 60;
         static const int width = 1200;
         static const int height = 900;
         static const int bok_tura_y = 400;  // y tury
@@ -49,10 +67,14 @@ class Gra {
         static constexpr const char* fBok = "bok.png";
         static constexpr const char* fRemis = "remis.png";
         static constexpr const char* fWygrana = "wygrana.png";
+        static constexpr const char* fPapier1 = "papier1.png";
+        static constexpr const char* fPapier2 = "papier2.png";
 };
 
-void Gra::init_okno() {
+void Gra::init_gra() {
     okno.create(sf::VideoMode(width, height), "Kolko i krzyzyk", sf::Style::Titlebar | sf::Style::Close);
+    okno.setFramerateLimit(FPS);
+    pokoj = Pokoj::pMenu;
 }
 
 void Gra::init_pozycje() {
@@ -78,25 +100,54 @@ void Gra::init_plansza() {
     tura = Figura::kolko;
 }
 
-void Gra::init_tekstury() {  // mozna to zrobic ladniej ale mi sie nie chce
+void Gra::init_tekstury() {  // mozna to zrobic ladniej
     kolko.loadFromFile(fKolko);
     krzyzyk.loadFromFile(fKrzyzyk);
     bok.loadFromFile(fBok);
     remis.loadFromFile(fRemis);
     wygrana.loadFromFile(fWygrana);
+    papier1.loadFromFile(fPapier1);
+    papier2.loadFromFile(fPapier2);
     kolko.setSmooth(true);
     krzyzyk.setSmooth(true);
     bok.setSmooth(true);
     remis.setSmooth(true);
     wygrana.setSmooth(true);
+    papier1.setSmooth(true);
+    papier2.setSmooth(true);
+    czcionka.loadFromFile("arial.ttf");
+
+    graj = gen_tekst("Graj!", 150, sf::Color::Red);
+    graj.setStyle(sf::Text::Bold);
+
+    o_grze = gen_tekst("O grze", 150, sf::Color::Red);
+    o_grze.setStyle(sf::Text::Bold);
+
+    t_about = gen_tekst("Gra stworzona przez Macieja Kaszkowiaka\n na przelomie kilku godzin.\nWykonano w C++ oraz SFML", 50, sf::Color::Blue);
+    wroc = gen_tekst("Wroc", 100, sf::Color::Red);
+    wroc.setStyle(sf::Text::Bold);
+
 }
 void Gra::process_keyboard(sf::Event ev) {
     if (ev.key.code == sf::Keyboard::Escape) {
-        okno.close();
+        if (pokoj == Pokoj::pAbout || pokoj == Pokoj::pGra) {
+            pokoj = Pokoj::pMenu;
+        } else {
+            okno.close();
+        }
     }
 }
 
 void Gra::process_leftclick(sf::Event ev) {
+    if (pokoj == Pokoj::pMenu)
+        process_menu(ev);
+    else if (pokoj == Pokoj::pGra)
+        process_plansza(ev);
+    else if (pokoj == Pokoj::pAbout)
+        process_about(ev);
+}
+
+void Gra::process_plansza(sf::Event ev) {
     if (koniec) {
         return;
     }
@@ -109,6 +160,22 @@ void Gra::process_leftclick(sf::Event ev) {
             }
         }
     }
+}
+
+void Gra::process_menu(sf::Event ev) {
+    float x = ev.mouseButton.x;
+    float y = ev.mouseButton.y;
+    if (graj.getGlobalBounds().contains(x, y))
+        pokoj = Pokoj::pGra;
+    if (o_grze.getGlobalBounds().contains(x, y))
+        pokoj = Pokoj::pAbout;
+}
+
+void Gra::process_about(sf::Event ev) {
+    float x = ev.mouseButton.x;
+    float y = ev.mouseButton.y;
+    if (wroc.getGlobalBounds().contains(x, y))
+        pokoj = Pokoj::pMenu;
 }
 
 void Gra::tura_next() {
@@ -168,7 +235,61 @@ void Gra::handle_clock() {
         }
     }
 }
+sf::Text Gra::gen_tekst(std::string txt, int px, sf::Color kolor) {
+    sf::Text generated;
+    generated.setString(txt);
+    generated.setColor(kolor);
+    generated.setCharacterSize(px);
+    generated.setFont(czcionka);
+    return generated;
+}
+
+void Gra::draw_about() {
+    float x, y;
+    sf::Sprite tlo;
+    tlo.setTexture(papier2);
+    okno.draw(tlo);
+
+    wroc.setColor(sf::Color::Red);
+    wroc.setPosition(50, 750);
+    t_about.setPosition(50, 100);
+    sf::Vector2i pos = sf::Mouse::getPosition(okno);
+    x = pos.x;
+    y = pos.y;
+
+    if (wroc.getGlobalBounds().contains(x, y))
+        wroc.setColor(sf::Color::Blue);
+    okno.draw(wroc);
+    okno.draw(t_about);
+
+}
+void Gra::draw_menu() {
+    float x, y;
+    sf::Sprite tlo;
+    tlo.setTexture(papier2);
+    okno.draw(tlo);
+
+    graj.setPosition(400, 200);
+    graj.setColor(sf::Color::Red);
+    o_grze.setPosition(400, 500);
+    o_grze.setColor(sf::Color::Red);
+    sf::Vector2i pos = sf::Mouse::getPosition(okno);
+    x = pos.x;
+    y = pos.y;
+    if (graj.getGlobalBounds().contains(x, y))
+        graj.setColor(sf::Color::Blue);
+    if (o_grze.getGlobalBounds().contains(x, y))
+        o_grze.setColor(sf::Color::Blue);
+    okno.draw(graj);
+    okno.draw(o_grze);
+
+
+}
 void Gra::draw_plansza() {
+    sf::Sprite tlo;
+    tlo.setTexture(papier1);
+    okno.draw(tlo);
+
     sf::Sprite boczek;
     boczek.setTexture(bok);
     boczek.setPosition(900, 0);
@@ -253,13 +374,18 @@ void Gra::petla() {
 
             okno.clear();
             handle_clock();
-            draw_plansza();
+            if (pokoj == Pokoj::pGra)  // nie mozna uzywac switch z enumami
+                draw_plansza();
+            else if (pokoj == Pokoj::pMenu)
+                draw_menu();
+            else if (pokoj == Pokoj::pAbout)
+                draw_about();
             okno.display();
         }
 }
 int main()
 {
     Gra gierka;
-    gierka.init_okno();
+    gierka.init_gra();
     gierka.petla();
 }
